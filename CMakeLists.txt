@@ -40,11 +40,11 @@ include_directories(
   ${PugiXML_INCLUDE_DIRS}
 )
 
-set(MODUELS core io projection routing traffic_rules geometry)
+set(MODULES core io projection routing traffic_rules geometry)
 
 set(LINKED_LIBRARIES "")
 # build the c++ libraries first
-foreach(SUBMODULE ${MODUELS})
+foreach(SUBMODULE ${MODULES})
   if (NOT SUBMODULE STREQUAL "geometry")
     set(LIBRARY_NAME ${PROJECT_NAME}_${SUBMODULE})
     set(SRCS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}_${SUBMODULE}/src)
@@ -72,7 +72,7 @@ endforeach()
 
 
 # build each python api binding submodule
-foreach(SUBMODULE ${MODUELS})
+foreach(SUBMODULE ${MODULES})
    set(API_LIBRARY_NAME "${PROJECT_NAME}_${SUBMODULE}_pyapi")
    add_library(${API_LIBRARY_NAME} SHARED
      lanelet2_python/python_api/${SUBMODULE}.cpp  # binding codes
@@ -82,5 +82,8 @@ foreach(SUBMODULE ${MODUELS})
      ${Boost_LIBRARIES}
      ${PYTHON_LIBRARY}
      ${LINKED_LIBRARIES}
+     lanelet2_core
+     lanelet2_io
+     lanelet2_projection
    )
 endforeach()
