@@ -60,6 +60,7 @@ foreach(SUBMODULE ${MODULES})
       ${PYTHON_LIBRARY}
       ${GeographicLib_LIBRARIES}
       ${PugiXML_LIBRARIES}
+      ${LINKED_LIBRARIES}
     )
     list(APPEND LINKED_LIBRARIES ${LIBRARY_NAME})
     install(TARGETS ${LIBRARY_NAME}
@@ -82,8 +83,5 @@ foreach(SUBMODULE ${MODULES})
      ${Boost_LIBRARIES}
      ${PYTHON_LIBRARY}
      ${LINKED_LIBRARIES}
-     lanelet2_core
-     lanelet2_io
-     lanelet2_projection
    )
 endforeach()
