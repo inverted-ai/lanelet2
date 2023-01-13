@@ -14,6 +14,47 @@
 
 namespace lanelet {
 namespace routing {
+
+/**
+ * @brief Controls the behaviour of the different possible path algorithms in RoutingGraph
+ *
+ * Consider the following graph (- or \ connects followers, | is a lane change):
+ * ```
+ * 1-2-3-4-5
+ *  \   /
+ *   6-7
+ *   | |
+ *   8-9
+ * ```
+ * Assuming we are using lanelet 1 as start of the search you can get the following results:
+ * - routingCostLimit=50 (and the rest the default): Will give you all optimal paths that are at least 50
+ * long (wrt to routing cost module zero, i.e. the first routing cost object from the "routingCosts"
+ * parameter that the routing graph was crated with), does not include lane changes. The paths end
+ * with the first lanelet that exceeds the 50 cost limit. Depending on the costs, the returned paths
+ * might be only the path 1-2-3 (assuming 1-6-7 is too short).
+ * - routingCostLimit=70: Will give you only 1-2-3-4, because 1-6-7-4 is a suboptimal path and 1-6-7 is too short.
+ * - routingCostLimit=70, includeShorterPaths=True: Will give you 1-2-3-4 and 1-6-7. 1-6-7-4 is not included because the
+ * path to 4 is suboptimal
+ * - elementLimit=3: Will give you all optimal paths with exactly 3 lanelets (excluding lane changes). The result
+ * will be 1-2-3 and 1-6-7
+ * - elementLimit=4: Will give you only 1-2-3-4, also because 1-6-7-4 is suboptimal
+ * - elementLimit=5, includeShorterPaths=true, includeLaneChanges=true: Will give you all optimal paths that
+ * are at most 5 lanelets/areas long, including lane changes. The result might be 1-2-3-4-5, 1-6-7,
+ * 1-8-9.
+ * - routingCostLimit=50, elementLimit=3, includeLaneChanges=true:  Will give you all optimal paths (including lane
+ * changes) where the last lanelet/area exceeds the 50 cost limit or that are 3 lanelets/areas long (whatever occurs
+ * first). The result might be 1-2-3, 1-6-7 and 1-8-9
+ * - routingCostLimit=70, elementLimit=4, includeShorterPaths=true: Will give you all optimal paths as above but also
+ * include shorter/cheaper paths. Result: 1-2-3-4, 1-6-7, 1-8-9.
+ */
+struct PossiblePathsParams {
+  Optional<double> routingCostLimit;  //!< cost limit for every path. Either that or maxElements must be valid.
+  Optional<uint32_t> elementLimit;    //!< element limit for every path. Effect depends on includeShorterPaths
+  RoutingCostId routingCostId{};      //!< the routing cost module to be used for the costs
+  bool includeLaneChanges{false};     //!< if true, returned paths will include lane changes
+  bool includeShorterPaths{false};    //!< also return paths that do not reach the limits
+};
+
 /** @brief Main class of the routing module that holds routing information and can be queried.
  *  The RoutingGraph class is the central object of this module and is initialized with a LaneletMap, TrafficRules and
  * RoutingCost.
@@ -292,53 +333,59 @@ class RoutingGraph {
   ConstLanelets reachableSetTowards(const ConstLanelet& lanelet, double maxRoutingCost,
                                     RoutingCostId routingCostId = {}, bool allowLaneChanges = true) const;
 
+  /**
+   * @brief Determines possible routes from a given start lanelet that satisfy the configuration in PossiblePathsParams
+   * @param startPoint Start lanelet
+   * @param params Parameters that configure the behaviour of the algorithm; see doc on PossiblePathsParams for details.
+   * @return all valid possible paths. If a lanelet can be reached
+   * using different paths, only the one is included that requires the least number of lane changes and has minimum
+   * routing costs. "startPoint" itself is always included if it is in the routing graph.
+   * @throws InvalidInputError if neither elementLimit nor costLimit is valid in params
+   */
+  LaneletPaths possiblePaths(const ConstLanelet& startPoint, const PossiblePathsParams& params) const;
+
   /** @brief Determines possible routes from a given start lanelet that are "minRoutingCost"-long.
    *
-   *  @return possible paths that are at least as long as specified in 'minRoutingCost'. If a lanelet can be reached
-   * using different paths, only the one is included that requires the least number of lane changes and has minimum
-   * routing costs. "lanelet" itself is always included.
-   *  @param startPoint Start lanelet
-   *  @param minRoutingCost Costs that must be reached by a route.
-   *  @param routingCostId ID of the routing cost module used
-   *  @param allowLaneChanges Allow or forbid lane changes */
+   * This behaves exactly as the PossiblePathsParams version with params.costLimit=minRoutingCost,
+   * params.includeLaneChanges=allowLaneChanges and params.routingCostId=routingCostId (and the rest as default).
+   */
   LaneletPaths possiblePaths(const ConstLanelet& startPoint, double minRoutingCost, RoutingCostId routingCostId = {},
                              bool allowLaneChanges = false) const;
 
-  /** @brief Determines possible paths from a given start lanelet that are "minLanelets"-long.   *
-   *  @return possible paths that are at least as long as specified number of lanelets. If a lanelet can be reached
-   * using different paths, only the one is included that requires the least number of lane changes and has minimum
-   * routing costs. "lanelet" itself is always included.
-   *  @param startPoint Start lanelet
-   *  @param minLanelets Number of lanelets a route must be long
-   *  @param allowLaneChanges Allow or forbid lane changes. Note that "lane changes" from a lanelet to an area do not
-   * count.
-   *  @param routingCostId ID of the routing cost module used. This is important in cases where some of routing cost
-   * modules retuned an invalid edge weight and some not.
+  /** @brief Determines possible paths from a given start lanelet that are "minLanelets"-long.
+   *
+   * This behaves exactly as the PossiblePathsParams version with params.elementLimit=minLanelets,
+   * params.includeLaneChanges=allowLaneChanges and params.routingCostId=routingCostId (and the rest as default).
    */
   LaneletPaths possiblePaths(const ConstLanelet& startPoint, uint32_t minLanelets, bool allowLaneChanges = false,
                              RoutingCostId routingCostId = {}) const;
 
+  /**
+   * @brief Determines possible routes to reach the given lanelet which satisfy the configuration in PossiblePathsParams
+   * @return possible paths that are at least as long as specified in 'minRoutingCost'. "targetLanelet" itself is
+   * always included if it is in the routing graph.
+   * @param targetLanelet Destination lanelet
+   * @param params Parameters that configure the behaviour of the algorithm; see doc on PossiblePathsParams for details.
+   * @throws InvalidInputError if neither elementLimit nor costLimit is valid in params */
+  LaneletPaths possiblePathsTowards(const ConstLanelet& targetLanelet, const PossiblePathsParams& params) const;
+
   /** @brief Determines possible routes that reach the given lanelet and are "minRoutingCost" long.
-   *  @return possible paths that are at least as long as specified in 'minRoutingCost'. "lanelet" itself is always
-   * included.
-   *  @param targetLanelet Start lanelet
-   *  @param minRoutingCost Costs that must be reached by a route.
-   *  @param routingCostId ID of the routing cost module used
-   *  @param allowLaneChanges Allow or forbid lane changes */
+   *
+   * This behaves exactly as the PossiblePathsParams version with params.costLimit=minRoutingCost,
+   * params.includeLaneChanges=allowLaneChanges and params.routingCostId=routingCostId (and the rest as default). */
   LaneletPaths possiblePathsTowards(const ConstLanelet& targetLanelet, double minRoutingCost,
                                     RoutingCostId routingCostId = {}, bool allowLaneChanges = false) const;
 
   /** @brief Determines possible paths towards a destination lanelet that are "minLanelets"-long.
-   *  @return possible routes that are at least as long as specified number of lanelets. The last lanelet will aways be
-   * "targetLanelet" (or nothing if it is not part of the graph).
-   *  @param targetLanelet target lanelet
-   *  @param minLanelets Number of lanelets a route must be long
-   *  @param allowLaneChanges Allow or forbid lane changes. Note that "lane changes" from a lanelet to an area do not
-   * count.
-   *  @param routingCostId ID of the routing cost module used. This is important in cases where some of routing cost
-   * modules retuned an invalid edge weight and some not. */
+   *
+   * This behaves exactly as the PossiblePathsParams version with params.elementLimit=minLanelets,
+   * params.includeLaneChanges=allowLaneChanges and params.routingCostId=routingCostId (and the rest as default). */
   LaneletPaths possiblePathsTowards(const ConstLanelet& targetLanelet, uint32_t minLanelets,
                                     bool allowLaneChanges = false, RoutingCostId routingCostId = {}) const;
+
+  //! Similar to RoutingGraph::possiblePaths, but also considers areas.
+  LaneletOrAreaPaths possiblePathsIncludingAreas(const ConstLaneletOrArea& startPoint,
+                                                 const PossiblePathsParams& params) const;
 
   //! Similar to RoutingGraph::possiblePaths, but also considers areas.
   LaneletOrAreaPaths possiblePathsIncludingAreas(const ConstLaneletOrArea& startPoint, double minRoutingCost,

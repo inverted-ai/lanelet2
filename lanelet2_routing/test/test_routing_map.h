@@ -389,7 +389,7 @@ class RoutingGraphTestData {
     addLine({points.at(129), points.at(131)});  // ls1215
     addLine({points.at(130), points.at(42)});   // ls1216
     lines.at(1205).setAttribute(AttributeName::Type, AttributeValueString::LineThin);
-    lines.at(1205).setAttribute(AttributeName::Type, AttributeValueString::Dashed);
+    lines.at(1205).setAttribute(AttributeName::Subtype, AttributeValueString::Dashed);
   }
   void initLanelets() {
     lanelets.clear();
@@ -521,7 +521,13 @@ template <typename T>
 class AllGraphsTest : public T {};
 
 using AllGraphs = testing::Types<GermanVehicleGraph, GermanPedestrianGraph, GermanBicycleGraph>;
-TYPED_TEST_CASE(AllGraphsTest, AllGraphs);
+
+#ifndef TYPED_TEST_SUITE
+// backwards compability with old gtest versions
+#define TYPED_TEST_SUITE TYPED_TEST_CASE
+#endif
+
+TYPED_TEST_SUITE(AllGraphsTest, AllGraphs);
 }  // namespace tests
 }  // namespace routing
 }  // namespace lanelet
