@@ -4,6 +4,23 @@
 | --------- | --------- | -------- | -------- |
 | [![](https://build.ros.org/job/Ndev__lanelet2__ubuntu_focal_amd64/lastBuild/badge/icon)](https://build.ros.org/job/Ndev__lanelet2__ubuntu_focal_amd64/lastBuild) | [![](https://build.ros2.org/job/Fdev__lanelet2__ubuntu_focal_amd64/lastBuild//badge/icon)](https://build.ros2.org/job/Fdev__lanelet2__ubuntu_focal_amd64/lastBuild) | ![build](https://www.mrt.kit.edu/z/gitlab/lanelet2/pipeline.svg) | ![coverage](https://www.mrt.kit.edu/z/gitlab/lanelet2/coverage.svg) |
 
+## Standalone version
+
+This is a modification of the original codebase, based on [Yu Zhang's fork](https://github.com/yuzhangbit/lanelet2_standalone) that allows for simple installation of Lanelet2 with pip without ROS or any other build systems, although some of the library's functionality may not be available.
+To install, make sure you have required dependencies
+```
+apt install -y libboost-all-dev libeigen3-dev libgeographic-dev libpugixml-dev libboost-python-dev
+```
+and then build the wheel and pip-install.
+```
+python3 setup.py bdist_wheel
+pip install ./dist/lanelet2-0.1.0-cp38-cp38-linux_x86_64.whl
+```
+Tested on Ubuntu 20.04.
+
+--- original README follows ---
+
+
 ## Overview
 
 Lanelet2 is a C++ library for handling map data in the context of automated driving. It is designed to utilize high-definition map data in order to efficiently handle the challenges posed to a vehicle in complex traffic scenarios. Flexibility and extensibility are some of the core principles to handle the upcoming challenges of future maps.
